@@ -22,24 +22,21 @@ enum STACK_STATUS
     DESTRUCTED
 };
 
-struct Stack
-{
-    size_t       size         = 0;
-    size_t       capacity     = 0;
-    elem_t*      dynamicArray = NULL;
-    STACK_STATUS status       = NOT_CONSTRUCTED;
-    STACK_ERRORS errorStatus  = NO_ERROR;
-};
+struct Stack;
 
-Stack*       stackConstruct (Stack* stack, size_t capacity);
-Stack*       stackConstruct (Stack* stack);
-Stack*       newStack       ();
-             
-bool         stackOk        (Stack* stack);    
-STACK_ERRORS stackPush      (Stack* stack, elem_t value);
-elem_t       stackPop       (Stack* stack);
-elem_t       stackTop       (Stack* stack);
-void         stackClear     (Stack* stack);    
-void         stackDestruct  (Stack* stack);
-void         stackDump      (Stack* stack);
+Stack*       stackConstruct   (Stack* stack, size_t capacity);
+Stack*       stackConstruct   (Stack* stack);
+Stack*       newStack         (size_t capacity);
+Stack*       newStack         ();
+void         stackDestruct    (Stack* stack);
+void         deleteStack      (Stack** stack);
+                              
+STACK_ERRORS stackPush        (Stack* stack, elem_t value);
+elem_t       stackPop         (Stack* stack);
+elem_t       stackTop         (Stack* stack);
+void         stackClear       (Stack* stack);
+void         stackShrinkToFit (Stack* stack);
+
+bool         stackOk          (Stack* stack);    
+void         stackDump        (Stack* stack);
 

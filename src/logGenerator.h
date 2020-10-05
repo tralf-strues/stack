@@ -12,7 +12,10 @@ constexpr const char* LOG_COLOR_PINK    = "pink";
 constexpr const char* LOG_COLOR_RED     = "red";
 constexpr const char* LOG_COLOR_YELLOW  = "yellow";
 
-bool initLog     ();
-bool closeLog    ();
-void logMessage  (const char* message, const char* color, ...);
-void logWrite    (const char* string,  const char* color, ...);
+bool initLog              ();
+bool closeLog             ();
+void logMessage           (const char* message, const char* color, ...);
+void logWrite             (const char* string,  ...);
+void logWrite             (const char* string,  const char* color, ...);
+void logWriteMessageStart (const char* color);
+void logWriteMessageEnd   ();

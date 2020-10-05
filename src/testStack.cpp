@@ -1,18 +1,23 @@
 #include "stack.h"
+#include "logGenerator.h"
 
 int main()
 {
-    Stack stack = {};
-    stackConstruct(&stack);
+    Stack* stack = newStack();
+    /*stackConstruct(&stack);*/
 
-    //stackPop(&stack);
+    initLog();
+
+    stackPop(stack);
 
     for (size_t i = 0; i < 100; i++)
     {
-        stackPush(&stack, i);
+        stackPush(stack, i);
     }
 
-    stackDump(&stack);
+    stackDump(stack);
+
+    closeLog();
 
     return 0;
 }

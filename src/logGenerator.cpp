@@ -38,8 +38,7 @@ bool initLog()
     if (logFile == NULL)
         return false;
 
-    if (fprintf(logFile, "<!DOCTYPE html>\n<html>\n<body>\n") <= 0 )
-        return false;
+    fprintf(logFile, "<!DOCTYPE html>\n<html>\n<body>\n");
 
     initialized = true;
     return true;
@@ -50,10 +49,9 @@ bool closeLog()
     if (!initialized)
         return false;
 
-    if (fclose(logFile) == EOF)
-        return false;
+    fprintf(logFile, "\n</body>\n</html>");
 
-    if (fprintf(logFile, "\n</body>\n</html>") <= 0 )        
+    if (fclose(logFile) == EOF)
         return false;
 
     initialized = false;
@@ -65,13 +63,30 @@ void logMessage(const char* message, const char* color, ...)
     assert(message != NULL);
     assert(color   != NULL);
 
+    if (!initialized)
+        return;
+
     va_list valist;
     va_start(valist, color);
 
-    if (!isValidColor(color))
-        color = LOG_COLOR_BLACK;
+    logWriteMessageStart(color);
+    vfprintf(logFile, message, valist);
+    logWriteMessageEnd();
 
-    fprintf(logFile, "\n<pre style=\"color:%s;\">\n%s\n</pre>\n", color, message);
+    va_end(valist);
+}
+
+void logWrite(const char* string, ...)
+{
+    assert(string != NULL);
+
+    if (!initialized)
+        return;
+
+    va_list valist;
+    va_start(valist, string);
+
+    vfprintf(logFile, string, valist);
 
     va_end(valist);
 }
@@ -79,10 +94,39 @@ void logMessage(const char* message, const char* color, ...)
 void logWrite(const char* string, const char* color, ...)
 {
     assert(string != NULL);
-    assert(color   != NULL);
+    assert(color  != NULL);
+
+    if (!initialized)
+        return;
+
+    va_list valist;
+    va_start(valist, color);
 
     if (!isValidColor(color))
         color = LOG_COLOR_BLACK;
 
-    fprintf(logFile, "<span style=\"color:%s;\">%s</span>", color, string);
+    fprintf (logFile, "<span style=\"color:%s;\">", color);
+    vfprintf(logFile, string, valist);
+    fprintf (logFile, "</span>");
+
+    va_end(valist);
+}
+
+void logWriteMessageStart(const char* color)
+{
+    if (!initialized)
+        return;
+
+    if (!isValidColor(color))
+        color = LOG_COLOR_BLACK;
+
+    fprintf (logFile, "\n<pre style=\"color:%s;\">\n", color);
+}
+
+void logWriteMessageEnd()
+{
+    if (!initialized)
+        return;
+
+    fprintf (logFile, "\n</pre>\n");
 }

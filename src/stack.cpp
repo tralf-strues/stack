@@ -16,6 +16,15 @@
 constexpr size_t STACK_EXPAND_MULTIPLIER = 2;
 constexpr size_t DEFAULT_STACK_CAPACITY  = 10;
 
+struct Stack
+{
+    size_t       size         = 0;
+    size_t       capacity     = 0;
+    elem_t*      dynamicArray = NULL;
+    STACK_STATUS status       = NOT_CONSTRUCTED;
+    STACK_ERRORS errorStatus  = NO_ERROR;
+};
+
 //-----------------------------------------------------------------------------
 //! Stack's constructor. Allocates capacity objects of type elem_t.
 //!
@@ -44,9 +53,9 @@ Stack* stackConstruct(Stack* stack, size_t capacity)
         return NULL;
     }
 
-    ASSERT_STACK_OK(stack);
-
     stack->status = CONSTRUCTED;
+
+    ASSERT_STACK_OK(stack);
 
     return stack;
 }
@@ -67,8 +76,6 @@ Stack* stackConstruct(Stack* stack)
     stack = stackConstruct(stack, DEFAULT_STACK_CAPACITY);
 
     ASSERT_STACK_OK(stack);
-
-    stack->status = CONSTRUCTED;
 
     return stack;
 }
@@ -273,14 +280,6 @@ void stackDestruct(Stack* stack)
 
 void stackDump(Stack* stack)
 {
-    LogFile logFile = {};
-    /*if (!logFile.initialized)
-    {
-        openLogFile(&logFile);
-    }*/
-    openLogFile(&logFile);
-    // todo
-
     char errorString[128];
     if (stack->errorStatus == NO_ERROR)
     {
@@ -307,38 +306,60 @@ void stackDump(Stack* stack)
             case REALLOCATION_FAILED:
                 strcat(errorString, "4: REALLOCATION_FAILED");
             break;
+
+            case UNINITIALIZED_USE:
+                strcat(errorString, "5: UNINITIALIZED_USE");
+            break;
+
+            case POST_DESTRUCTION_USE:
+                strcat(errorString, "6: POST_DESTRUCTION_USE");
+            break;
         }
     }
-        
-    fprintf(logFile.file, "Stack (%s) [0x%X] \"\"\n"
-            "{\n"
-            "   size         = %lld\n"
-            "   capacity     = %lld\n"
-            "   dynamicArray [0x%X]\n"
-            "   {\n",
-            errorString, stack, stack->size, stack->capacity, stack->dynamicArray);
+    
+    logWriteMessageStart(LOG_COLOR_BLACK);
+    logWrite("Stack (");
+    logWrite(errorString, stack->errorStatus == NO_ERROR ? LOG_COLOR_BLACK : LOG_COLOR_RED);
+    logWrite(") [0x%X] \"\"\n"
+             "{\n"
+             "   size         = %lld\n"
+             "   capacity     = %lld\n"
+             "   dynamicArray [0x%X]\n"
+             "   {\n",
+             stack, stack->size, stack->capacity, stack->dynamicArray);
+
+    //fprintf(logFile.file, "Stack (%s) [0x%X] \"\"\n"
+    //        "{\n"
+    //        "   size         = %lld\n"
+    //        "   capacity     = %lld\n"
+    //        "   dynamicArray [0x%X]\n"
+    //        "   {\n",
+    //        errorString, stack, stack->size, stack->capacity, stack->dynamicArray);
 
     for (size_t i = 0; i < stack->capacity; i++)
     {
         if (i < stack->size)
         {
             // todo printing elem_t
-            fprintf(logFile.file, 
+            logWrite("       *[%lld] = %g\n", 
+                     i, stack->dynamicArray[i]);
+            /*fprintf(logFile.file, 
                     "       *[%lld] = %g\n", 
-                    i, stack->dynamicArray[i]);
+                    i, stack->dynamicArray[i]);*/
         }
         else
         {
             // todo printing elem_t
-            fprintf(logFile.file, 
-                    "        [%lld] = %g\n", 
-                    i, stack->dynamicArray[i]);
+            logWrite("        [%lld] = %g\n", 
+                     i, stack->dynamicArray[i]);
         }
     }
 
-    fprintf(logFile.file, 
-            "   }\n"
-            "}\n");
+    logWrite("   }\n"
+             "}\n");
 
-    closeLogFile(&logFile);
+    logWriteMessageEnd();
+
+    if (stack->errorStatus != NO_ERROR)
+        closeLog();
 }
