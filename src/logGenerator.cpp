@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <string.h>
+#include <math.h>
 #include "logGenerator.h"
 
 FILE* logFile     = NULL;
@@ -122,4 +123,41 @@ void logWriteMessageEnd()
         return;
 
     fprintf (logFile, "\n</pre>\n");
+}
+
+//-----------------------------------------------------------------------------
+//! Converts int to string. 
+//!
+//! @param [in]  value   value to be converted
+//! @param [out] str     string to which to write result
+//! @param [in]  digits  number of digits of value (not counting the sign)
+//!
+//! @return str or NULL on failure.
+//-----------------------------------------------------------------------------
+char* intToStr (int value, char* str, size_t digits)
+{
+    if (str == NULL)
+        return NULL;
+
+    int i = 0;
+    if (value < 0)
+    {
+        str[0] = '-';
+        i = 1;
+        value = -value;
+    }
+
+    int currentDigit = 0;
+    for (int tensPower = lround(pow(10, digits - 1)); 
+         tensPower >= 1; 
+         tensPower /= 10, i++)
+    {
+        currentDigit = (value / tensPower) % 10;
+
+        str[i] = '0' + currentDigit;
+    }
+
+    str[i] = '\0';
+
+    return str;
 }

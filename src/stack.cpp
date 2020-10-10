@@ -1,14 +1,9 @@
-#include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <assert.h>
 #include <string.h>
 #include <math.h>
 
 #include "stack.h"
 #include "logGenerator.h"
-
-//#define PRINT_ERROR(error) strcat(errorString, ((int)error + '0')); strcat(errorString, #error);
 
 #ifdef STACK_POISON
 #define PUT_POISON(begin, end) putPoison(begin, end)
@@ -36,6 +31,20 @@ void putPoison(elem_t* begin, elem_t* end)
 #define SET_CANARY(memBlock, memBlockSize, canary, side)       setCanary  (memBlock, memBlockSize, canary,  side)
 #define SET_CANARIES(memBlock, memBlockSize, canaryL, canaryR) setCanaries(memBlock, memBlockSize, canaryL, canaryR)
 
+//-----------------------------------------------------------------------------
+//! Returns left (side = 'l') or right (side = 'r') canary of the memBlock. 
+//! Undefined behavior in case there's no canary protection for memBlock.
+//!
+//! @param [in]  memBlock  
+//! @param [in]  memBlockSize   
+//! @param [in]  side          indicates which canary to return - 'l' for
+//!                            left and 'r' for right
+//!
+//! @note dependent on whether or not STACK_ARRAY_HASHING is defined (hash is
+//!       located between memBlock and right canary).
+//!
+//! @return canary value or 0 if side isn't 'l' or 'r'
+//-----------------------------------------------------------------------------
 uint32_t getCanary(void* memBlock, size_t memBlockSize, char side)
 {
     if (side == 'l')
@@ -44,12 +53,32 @@ uint32_t getCanary(void* memBlock, size_t memBlockSize, char side)
     }
     else if (side == 'r')
     {
-        return *(uint32_t*)((char*) memBlock + memBlockSize);
+        return *(uint32_t*)((char*) memBlock + memBlockSize 
+                            
+                            #ifdef STACK_ARRAY_HASHING
+                            + sizeof(uint32_t)
+                            #endif
+
+                            );
     }
 
     return 0;
 }
 
+//-----------------------------------------------------------------------------
+//! Sets left (side = 'l') or right (side = 'r') canary of the memBlock. 
+//! Does nothing if side isn't 'l' or 'r'. Undefined behavior in case there's 
+//! no canary protection for memBlock.
+//!
+//! @param [in]  memBlock  
+//! @param [in]  memBlockSize   
+//! @param [in]  canary   
+//! @param [in]  side          indicates which canary to return - 'l' for
+//!                            left and 'r' for right
+//!
+//! @note dependent on whether or not STACK_ARRAY_HASHING is defined (hash is
+//!       located between memBlock and right canary).
+//-----------------------------------------------------------------------------
 void setCanary(void* memBlock, size_t memBlockSize, uint32_t canary, char side)
 {
     if (side == 'l')
@@ -58,10 +87,28 @@ void setCanary(void* memBlock, size_t memBlockSize, uint32_t canary, char side)
     }
     else if (side == 'r')
     {
-        *(uint32_t*)((char*) memBlock + memBlockSize)  = canary;
+        *(uint32_t*)((char*) memBlock + memBlockSize
+                     
+                     #ifdef STACK_ARRAY_HASHING
+                     + sizeof(uint32_t)
+                     #endif
+                     
+                     )  = canary;
     }
 }
 
+//-----------------------------------------------------------------------------
+//! Sets left and right canaries of the memBlock. Undefined behavior in case 
+//! there's no canary protection for memBlock.
+//!
+//! @param [in]  memBlock  
+//! @param [in]  memBlockSize   
+//! @param [in]  canaryL   
+//! @param [in]  canaryR   
+//!
+//! @note dependent on whether or not STACK_ARRAY_HASHING is defined (hash is
+//!       located between memBlock and right canary).
+//-----------------------------------------------------------------------------
 void setCanaries(void* memBlock, size_t memBlockSize, uint32_t canaryL, uint32_t canaryR)
 {
     setCanary(memBlock, memBlockSize, canaryL, 'l');
@@ -72,6 +119,30 @@ void setCanaries(void* memBlock, size_t memBlockSize, uint32_t canaryL, uint32_t
 #define GET_CANARY(memBlock, memBlockSize, side)               
 #define SET_CANARY(memBlock, memBlockSize, canary, side)       
 #define SET_CANARIES(memBlock, memBlockSize, canaryL, canaryR) 
+#endif
+
+#ifdef STACK_ARRAY_HASHING
+#define UPDATE_HASH(memBlock, memBlockSize, hash) updateHash(memBlock, memBlockSize, hash)
+
+//-----------------------------------------------------------------------------
+//! Updates hash value. Computes XOR for rotated right hash and current byte 
+//! (does this for each byte of memBlock).
+//!
+//! @param [in]  memBlock  
+//! @param [in]  memBlockSize   
+//! @param [out] hash   
+//-----------------------------------------------------------------------------
+void updateHash(void* memBlock, size_t memBlockSize, uint32_t* hash)
+{
+    *hash = 0;
+    for (char* currByte = (char*) memBlock; currByte < (char*)memBlock + memBlockSize; currByte++)
+    {
+        *hash = ((*hash << 1) + ((*hash >> (8 * sizeof(*hash) - 1)) & 1)) ^ *currByte;
+    }
+}
+
+#else
+#define UPDATE_HASH(memBlock, memBlockSize, hash) 
 #endif
 
 //-----------------------------------------------------------------------------
@@ -102,14 +173,21 @@ Stack* fstackConstruct(Stack* stack, size_t capacity)
     stack->size         = 0;
     stack->capacity     = capacity > MINIMAL_STACK_CAPACITY ? capacity : MINIMAL_STACK_CAPACITY;
 
-    #ifdef STACK_CANARIES_ENABLED
-    stack->dynamicArray = (elem_t*) ((char*)calloc(1, stack->capacity * sizeof(elem_t) + 
-                                                      sizeof(STACK_ARRAY_CANARY_L) + 
-                                                      sizeof(STACK_ARRAY_CANARY_R)) 
-                                     + sizeof(STACK_ARRAY_CANARY_L));
-    #else
-    stack->dynamicArray = (elem_t*) calloc(stack->capacity, sizeof(elem_t));
-    #endif
+    stack->dynamicArray = (elem_t*) ((char*)calloc(1, stack->capacity * sizeof(elem_t) 
+
+                                                   #ifdef STACK_CANARIES_ENABLED
+                                                   + sizeof(STACK_ARRAY_CANARY_L) 
+                                                   + sizeof(STACK_ARRAY_CANARY_R) 
+                                                   #endif
+                                               
+                                                   #ifdef STACK_ARRAY_HASHING
+                                                   + sizeof(uint32_t)
+                                                   #endif
+                                                   )
+                                     #ifdef STACK_CANARIES_ENABLED
+                                     + sizeof(STACK_ARRAY_CANARY_L)
+                                     #endif 
+                                    );
 
     if (stack->dynamicArray == NULL) 
     {
@@ -120,8 +198,9 @@ Stack* fstackConstruct(Stack* stack, size_t capacity)
 
     SET_CANARIES((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), STACK_ARRAY_CANARY_L, STACK_ARRAY_CANARY_R);
     SET_CANARIES((void*)(stack + 1), sizeof(Stack), STACK_STRUCT_CANARY_L, STACK_ARRAY_CANARY_R);
-
     PUT_POISON(stack->dynamicArray, stack->dynamicArray + stack->capacity);
+    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+
     stack->status = CONSTRUCTED;
     ASSERT_STACK_OK(stack);
 
@@ -290,14 +369,28 @@ elem_t* resizeArray(Stack* stack, size_t newCapacity)
     elem_t* newDynamicArray = NULL;
     ASSERT_STACK_OK(stack);
 
-    #ifdef STACK_CANARIES_ENABLED
-    newDynamicArray = (elem_t*) ((char*) realloc((char*) stack->dynamicArray - sizeof(STACK_ARRAY_CANARY_L), 
-                                                 newCapacity * sizeof(elem_t) + 
-                                                 sizeof(STACK_ARRAY_CANARY_L) + 
-                                                 sizeof(STACK_ARRAY_CANARY_R)) + sizeof(STACK_ARRAY_CANARY_L));
-    #else
-    newDynamicArray = (elem_t*) realloc(stack->dynamicArray, newCapacity * sizeof(elem_t));
-    #endif
+    newDynamicArray = (elem_t*) ((char*) realloc((char*) stack->dynamicArray 
+                                                 
+                                                 #ifdef STACK_CANARIES_ENABLED
+                                                 - sizeof(STACK_ARRAY_CANARY_L)
+                                                 #endif
+                                                 , 
+                                                 newCapacity * sizeof(elem_t) 
+
+                                                 #ifdef STACK_CANARIES_ENABLED
+                                                 + sizeof(STACK_ARRAY_CANARY_L) 
+                                                 + sizeof(STACK_ARRAY_CANARY_R)
+                                                 #endif
+
+                                                 #ifdef STACK_ARRAY_HASHING
+                                                 + sizeof(uint32_t)
+                                                 #endif
+                                                ) 
+
+                                 #ifdef STACK_CANARIES_ENABLED
+                                 + sizeof(STACK_ARRAY_CANARY_L)
+                                 #endif  
+                                 );
 
     if (newDynamicArray == NULL)
     {
@@ -310,8 +403,8 @@ elem_t* resizeArray(Stack* stack, size_t newCapacity)
         stack->capacity     = newCapacity;
 
         PUT_POISON(stack->dynamicArray + stack->size, stack->dynamicArray + stack->capacity);
-
         SET_CANARY((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), STACK_ARRAY_CANARY_R, 'r');
+        UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
     }
 
     return newDynamicArray;
@@ -346,6 +439,7 @@ STACK_ERRORS stackPush(Stack* stack, elem_t value)
     stack->dynamicArray[stack->size] = value;
     stack->size++;
 
+    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
     ASSERT_STACK_OK(stack);
 
     return NO_ERROR;
@@ -376,6 +470,8 @@ elem_t stackPop(Stack* stack)
     elem_t returnValue = stack->dynamicArray[stack->size];
 
     PUT_POISON(stack->dynamicArray + stack->size, stack->dynamicArray + stack->size + 1);
+    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+    ASSERT_STACK_OK(stack);
 
     return returnValue;
 }
@@ -422,7 +518,7 @@ void stackClear(Stack* stack)
     }
 
     PUT_POISON(stack->dynamicArray, stack->dynamicArray + stack->capacity);
-
+    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
     ASSERT_STACK_OK(stack);
 }
 
@@ -451,6 +547,9 @@ bool stackShrinkToFit(Stack* stack)
         ASSERT_STACK_OK(stack);
         return false;
     }
+
+    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+    ASSERT_STACK_OK(stack);
 
     return true;
 }
@@ -529,8 +628,22 @@ bool stackOk(Stack* stack)
     }
     #endif
 
+    #ifdef STACK_ARRAY_HASHING
+    uint32_t prevHash = *(uint32_t*) &stack->dynamicArray[stack->capacity];
+    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+    uint32_t newHash  = *(uint32_t*) &stack->dynamicArray[stack->capacity];
+
+    if (prevHash != newHash)
+    {
+        stack->errorStatus = MEMORY_CORRUPTION;
+        return false;
+    }
+    #endif
+
     return true;
 }
+
+#define STACK_ERROR_STRING(errorStatus) ": " #errorStatus
 
 //-----------------------------------------------------------------------------
 //! Uses logGenerator to dump stack to html log file. 
@@ -552,35 +665,36 @@ void dump(Stack* stack)
     else
     {
         strcpy(errorString, "ERROR ");
+        intToStr(stack->errorStatus, &errorString[6], 1);
 
         switch(stack->errorStatus)
         {
             case POP_FROM_EMPTY:
-                strcat(errorString, "1: POP_FROM_EMPTY");
+                strcpy(&errorString[7], STACK_ERROR_STRING(POP_FROM_EMPTY));
             break;
 
             case TOP_FROM_EMPTY:
-                strcat(errorString, "2: TOP_FROM_EMPTY");
+                strcpy(&errorString[7], STACK_ERROR_STRING(TOP_FROM_EMPTY));
             break;
 
             case CONSTRUCTION_FAILED:
-                strcat(errorString, "3: CONSTRUCTION_FAILED");
+                strcpy(&errorString[7], STACK_ERROR_STRING(CONSTRUCTION_FAILED));
             break;
 
             case REALLOCATION_FAILED:
-                strcat(errorString, "4: REALLOCATION_FAILED");
+                strcpy(&errorString[7], STACK_ERROR_STRING(REALLOCATION_FAILED));
             break;
 
             case NOT_CONSTRUCTED_USE:
-                strcat(errorString, "5: NOT_CONSTRUCTED_USE");
+                strcpy(&errorString[7], STACK_ERROR_STRING(NOT_CONSTRUCTED_USE));
             break;
 
             case DESTRUCTED_USE:
-                strcat(errorString, "6: DESTRUCTED_USE");
+                strcpy(&errorString[7], STACK_ERROR_STRING(DESTRUCTED_USE));
             break;
 
             case MEMORY_CORRUPTION:
-                strcat(errorString, "7: MEMORY_CORRUPTION");
+                strcpy(&errorString[7], STACK_ERROR_STRING(MEMORY_CORRUPTION));
             break;
         }
     }
@@ -599,7 +713,7 @@ void dump(Stack* stack)
 
              #ifdef STACK_CANARIES_ENABLED
              "   canaryL: 0x%lX | must be 0x%lX\n"
-             "   canaryR: 0x%lX | must be 0x%lX\n\n"
+             "   canaryR: 0x%lX | must be 0x%lX\n"
              #endif
 
              "   size         = %llu\n"
@@ -609,7 +723,11 @@ void dump(Stack* stack)
 
              #ifdef STACK_CANARIES_ENABLED
              "       canaryL: 0x%lX | must be 0x%lX\n"
-             "       canaryR: 0x%lX | must be 0x%lX\n\n"
+             "       canaryR: 0x%lX | must be 0x%lX\n"
+             #endif
+
+             #ifdef STACK_ARRAY_HASHING
+             "       hash:    0x%lX (decimal = %llu)\n"
              #endif
 
              ,
@@ -634,6 +752,11 @@ void dump(Stack* stack)
               getCanary((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), 'r'),
               STACK_ARRAY_CANARY_R
              #endif  
+
+             #ifdef STACK_ARRAY_HASHING
+             ,(uint32_t*) &stack->dynamicArray[stack->capacity],
+              (uint32_t*) &stack->dynamicArray[stack->capacity]
+             #endif
     );
 
     for (size_t i = 0; i < stack->capacity; i++)

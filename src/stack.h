@@ -1,5 +1,6 @@
 #pragma once
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -35,7 +36,7 @@
 #define IS_STACK_POISON(value) isnan(value)
 #define STACK_CANARIES_ENABLED
 
-#define STACK_HASHING
+#define STACK_ARRAY_HASHING
 #endif
 
 #ifdef STACK_CANARIES_ENABLED

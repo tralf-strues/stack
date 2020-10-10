@@ -16,7 +16,9 @@ int main()
         stackPush(&yuippi, i / 10.0);
     }
 
-    dump(&yuippi);
+    yuippi.dynamicArray[3] = 0.4;
+
+    ASSERT_STACK_OK(&yuippi);
 
     //deleteStack(&yuippi);
     closeLog();
