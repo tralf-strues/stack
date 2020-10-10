@@ -6,27 +6,15 @@
 FILE* logFile     = NULL;
 bool  initialized = false;
 
-//void writeHtmlOpening(LogFile* logFile)
-//{
-//    assert(logFile != NULL);
-//
-//    // todo
-//}
-
 bool isValidColor(const char* color)
 {
-    if (strcmp(color, LOG_COLOR_BLACK)  == 0 ||
-        strcmp(color, LOG_COLOR_BLUE)   == 0 ||
-        strcmp(color, LOG_COLOR_GRAY)   == 0 ||
-        strcmp(color, LOG_COLOR_GREEN)  == 0 ||
-        strcmp(color, LOG_COLOR_PINK)   == 0 ||
-        strcmp(color, LOG_COLOR_RED)    == 0 ||
-        strcmp(color, LOG_COLOR_YELLOW) == 0)
-    {
-        return true;
-    }
-
-    return false;
+    return strcmp(color, LOG_COLOR_BLACK)  == 0 ||
+           strcmp(color, LOG_COLOR_BLUE)   == 0 ||
+           strcmp(color, LOG_COLOR_GRAY)   == 0 ||
+           strcmp(color, LOG_COLOR_GREEN)  == 0 ||
+           strcmp(color, LOG_COLOR_PINK)   == 0 ||
+           strcmp(color, LOG_COLOR_RED)    == 0 ||
+           strcmp(color, LOG_COLOR_YELLOW) == 0;
 }
 
 bool initLog()
@@ -56,6 +44,11 @@ bool closeLog()
 
     initialized = false;
     return true;
+}
+
+bool isLogInitialized()
+{
+    return initialized;
 }
 
 void logMessage(const char* message, const char* color, ...)

@@ -3,20 +3,22 @@
 
 int main()
 {
-    Stack* stack = newStack();
-    /*stackConstruct(&stack);*/
+    //Stack* stack = newStack();
+    Stack yuippi = {};
+    stackDefaultConstruct(yuippi);
 
     initLog();
 
-    stackPop(stack);
+    //stackPop(&yuippi);
 
-    for (size_t i = 0; i < 100; i++)
+    for (size_t i = 0; i < 13; i++)
     {
-        stackPush(stack, i);
+        stackPush(&yuippi, i / 10.0);
     }
 
-    stackDump(stack);
+    dump(&yuippi);
 
+    //deleteStack(&yuippi);
     closeLog();
 
     return 0;
