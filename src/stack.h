@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define STACK_DEBUG_MODE
-
 #ifdef STACK_DEBUG_MODE
 #define STACK_DEBUG_LVL3 
 #endif

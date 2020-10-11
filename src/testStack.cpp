@@ -1,27 +1,31 @@
 #include "stack.h"
 #include "logGenerator.h"
+#include <stdlib.h>
 
 int main()
 {
     //Stack* stack = newStack();
-    Stack yuippi = {};
-    stackDefaultConstruct(yuippi);
+    Stack yuippi;
+    stackConstruct(yuippi, 10);
+    //stackDefaultConstruct(yuippi);
 
-    initLog();
+    //initLog();
 
-    //stackPop(&yuippi);
+    ////stackPop(&yuippi);
 
-    for (size_t i = 0; i < 13; i++)
-    {
-        stackPush(&yuippi, i / 10.0);
-    }
+    //for (size_t i = 0; i < 13; i++)
+    //{
+    //    stackPush(&yuippi, i / 10.0);
+    //}
 
-    yuippi.dynamicArray[3] = 0.4;
+    //yuippi.dynamicArray[3] = 0.3;
 
-    ASSERT_STACK_OK(&yuippi);
+    //ASSERT_STACK_OK(&yuippi);
 
-    //deleteStack(&yuippi);
-    closeLog();
+    dump(&yuippi);
+
+    ////deleteStack(&yuippi);
+    //closeLog();
 
     return 0;
 }

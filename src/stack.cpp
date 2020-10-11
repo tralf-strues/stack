@@ -167,7 +167,7 @@ Stack* fstackConstruct(Stack* stack, size_t capacity)
     assert(capacity > 0);
 
     #ifdef STACK_DEBUG_MODE
-    stack->name         = stackName;
+    stack->name = stackName;
     #endif
 
     stack->size         = 0;
@@ -652,6 +652,8 @@ bool stackOk(Stack* stack)
 //-----------------------------------------------------------------------------
 void dump(Stack* stack)
 {
+    assert(stack != NULL);
+
     if (!isLogInitialized())
     {
         initLog();
@@ -702,90 +704,99 @@ void dump(Stack* stack)
     logWriteMessageStart(LOG_COLOR_BLACK);
     logWrite("Stack (");
     logWrite(errorString, stack->errorStatus == NO_ERROR ? LOG_COLOR_GREEN : LOG_COLOR_RED);
-    logWrite(") [0x%X] "
 
-             #ifdef STACK_DEBUG_MODE
-             "\"%s\""
-             #endif
-
-             "\n"
-             "{\n"  
-
-             #ifdef STACK_CANARIES_ENABLED
-             "   canaryL: 0x%lX | must be 0x%lX\n"
-             "   canaryR: 0x%lX | must be 0x%lX\n"
-             #endif
-
-             "   size         = %llu\n"
-             "   capacity     = %llu\n"
-             "   dynamicArray [0x%X]\n"
-             "   {\n"
-
-             #ifdef STACK_CANARIES_ENABLED
-             "       canaryL: 0x%lX | must be 0x%lX\n"
-             "       canaryR: 0x%lX | must be 0x%lX\n"
-             #endif
-
-             #ifdef STACK_ARRAY_HASHING
-             "       hash:    0x%lX (decimal = %llu)\n"
-             #endif
-
-             ,
-             stack, 
-
-             #ifdef STACK_DEBUG_MODE
-             stack->name, 
-             #endif
-
-             #ifdef STACK_CANARIES_ENABLED
-             stack->canaryL, STACK_STRUCT_CANARY_L,
-             stack->canaryR, STACK_STRUCT_CANARY_R,
-             #endif
-
-             stack->size, 
-             stack->capacity, 
-             stack->dynamicArray
-             
-             #ifdef STACK_CANARIES_ENABLED
-             ,getCanary((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), 'l'),
-              STACK_ARRAY_CANARY_L,
-              getCanary((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), 'r'),
-              STACK_ARRAY_CANARY_R
-             #endif  
-
-             #ifdef STACK_ARRAY_HASHING
-             ,(uint32_t*) &stack->dynamicArray[stack->capacity],
-              (uint32_t*) &stack->dynamicArray[stack->capacity]
-             #endif
-    );
-
-    for (size_t i = 0; i < stack->capacity; i++)
+    if (stack->errorStatus == NOT_CONSTRUCTED_USE || stack->errorStatus == DESTRUCTED_USE)
     {
-        if (i < stack->size)
-        {
-            // todo printing elem_t
-            logWrite("       *[%llu]\t= %f ", 
-                     i, stack->dynamicArray[i]);
-        }
-        else
-        {
-            // todo printing elem_t
-            logWrite("        [%llu]\t= %f ", 
-                     i, stack->dynamicArray[i]);
-        }
-
-        #ifdef STACK_POISON
-        if (IS_STACK_POISON(stack->dynamicArray[i]))
-        {
-            logWrite("(POISON!)");
-        }
-        #endif
-
-        logWrite("\n");
+        logWrite(") [0x%X] \n");
     }
+    else
+    {
+        logWrite(") [0x%X] "
 
-    logWrite("   }\n"
-             "}\n");
+                 #ifdef STACK_DEBUG_MODE
+                 "\"%s\""
+                 #endif
+
+                 "\n"
+                 "{\n"  
+
+                 #ifdef STACK_CANARIES_ENABLED
+                 "   canaryL: 0x%lX | must be 0x%lX\n"
+                 "   canaryR: 0x%lX | must be 0x%lX\n"
+                 #endif
+
+                 "   size         = %llu\n"
+                 "   capacity     = %llu\n"
+                 "   dynamicArray [0x%X]\n"
+                 "   {\n"
+
+                 #ifdef STACK_CANARIES_ENABLED
+                 "       canaryL: 0x%lX | must be 0x%lX\n"
+                 "       canaryR: 0x%lX | must be 0x%lX\n"
+                 #endif
+
+                 #ifdef STACK_ARRAY_HASHING
+                 "       hash:    0x%lX (decimal = %llu)\n"
+                 #endif
+
+                 ,
+                 stack, 
+
+                 #ifdef STACK_DEBUG_MODE
+                 stack->name, 
+                 #endif
+
+                 #ifdef STACK_CANARIES_ENABLED
+                 stack->canaryL, STACK_STRUCT_CANARY_L,
+                 stack->canaryR, STACK_STRUCT_CANARY_R,
+                 #endif
+
+                 stack->size, 
+                 stack->capacity, 
+                 stack->dynamicArray
+                 
+                 #ifdef STACK_CANARIES_ENABLED
+                 ,getCanary((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), 'l'),
+                  STACK_ARRAY_CANARY_L,
+                  getCanary((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), 'r'),
+                  STACK_ARRAY_CANARY_R
+                 #endif  
+
+                 #ifdef STACK_ARRAY_HASHING
+                 ,(uint32_t*) &stack->dynamicArray[stack->capacity],
+                  (uint32_t*) &stack->dynamicArray[stack->capacity]
+                 #endif
+        );
+
+        for (size_t i = 0; i < stack->capacity; i++)
+        {
+            if (i < stack->size)
+            {
+                // todo printing elem_t
+                logWrite("       *[%llu]\t= %f ", 
+                         i, stack->dynamicArray[i]);
+            }
+            else
+            {
+                // todo printing elem_t
+                logWrite("        [%llu]\t= %f ", 
+                         i, stack->dynamicArray[i]);
+            }
+
+            #ifdef STACK_POISON
+            if (IS_STACK_POISON(stack->dynamicArray[i]))
+            {
+                logWrite("(POISON!)");
+            }
+            #endif
+
+            logWrite("\n");
+        }
+
+        logWrite("   }\n"
+                 "}\n");
+
+    }
 
     logWriteMessageEnd();
 
