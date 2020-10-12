@@ -9,7 +9,7 @@
 #endif
 
 #if !defined(STACK_DEBUG_LVL1) && !defined(STACK_DEBUG_LVL2) && !defined(STACK_DEBUG_LVL3)
-#define ASSERT_STACK_OK(stack) ;
+#define ASSERT_STACK_OK(stack) assert(stack != NULL);
 #else
 #define STACK_DEBUG_MODE
 #endif
@@ -46,11 +46,11 @@ constexpr uint32_t STACK_STRUCT_CANARY_R = 0xFACEBEEF;
 #endif
 
 #ifdef STACK_DEBUG_MODE
-#define stackConstruct(stack, capacity) fstackConstruct(&stack, capacity, #stack);
-#define stackDefaultConstruct(stack)    fstackConstruct(&stack, #stack);
+#define stackConstruct(stack, capacity) fstackConstruct(stack, capacity, &#stack[1]);
+#define stackDefaultConstruct(stack)    fstackConstruct(stack, &#stack[1]);
 #else
-#define stackConstruct(stack, capacity) fstackConstruct(&stack, capacity);
-#define stackDefaultConstruct(stack)    fstackConstruct(&stack);
+#define stackConstruct(stack, capacity) fstackConstruct(stack, capacity);
+#define stackDefaultConstruct(stack)    fstackConstruct(stack);
 #endif
 
 typedef double elem_t;

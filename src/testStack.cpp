@@ -4,28 +4,18 @@
 
 int main()
 {
-    //Stack* stack = newStack();
-    Stack yuippi;
-    stackConstruct(yuippi, 10);
-    //stackDefaultConstruct(yuippi);
+    initLog();
 
-    //initLog();
+    Stack st = {};
+    stackConstruct(&st, 10); 
 
-    ////stackPop(&yuippi);
+    stackPop(&st);
 
-    //for (size_t i = 0; i < 13; i++)
-    //{
-    //    stackPush(&yuippi, i / 10.0);
-    //}
+    stackPush(&st, 100); 
 
-    //yuippi.dynamicArray[3] = 0.3;
+    //dump(&st);
 
-    //ASSERT_STACK_OK(&yuippi);
-
-    dump(&yuippi);
-
-    ////deleteStack(&yuippi);
-    //closeLog();
+    closeLog();
 
     return 0;
 }

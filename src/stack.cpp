@@ -16,9 +16,42 @@
 //-----------------------------------------------------------------------------
 void putPoison(elem_t* begin, elem_t* end)
 {
+    assert(begin != NULL);
+    assert(end   != NULL);
+
     for (; begin < end; begin++)
     {
         *begin = STACK_POISON;
+    }
+}
+
+//-----------------------------------------------------------------------------
+//! Checks whether or not stack's dynamicArray has POISON in unused space and 
+//! sets stack's errorStatus to MEMORY_CORRUPTION if there's an unused element
+//! that doesn't have POISON.
+//!
+//! @param [in]  stack    
+//!
+//! @return whether or not stack's dynamicArray has POISON in unused space.
+//-----------------------------------------------------------------------------
+bool stackCheckPoison(Stack* stack)
+{
+    for (size_t i = 0; i < stack->size; i++)
+    {
+        if (IS_STACK_POISON(stack->dynamicArray[i]))
+        {
+            stack->errorStatus = MEMORY_CORRUPTION;
+            return false;
+        }
+    }
+
+    for (size_t i = stack->size; i < stack->capacity; i++)
+    {
+        if (!IS_STACK_POISON(stack->dynamicArray[i]))
+        {
+            stack->errorStatus = MEMORY_CORRUPTION;
+            return false;
+        }
     }
 }
 
@@ -115,6 +148,29 @@ void setCanaries(void* memBlock, size_t memBlockSize, uint32_t canaryL, uint32_t
     setCanary(memBlock, memBlockSize, canaryR, 'r');
 }
 
+//-----------------------------------------------------------------------------
+//! Checks whether or not stack's canaries have correct values and sets stack's
+//! errorStatus to MEMORY_CORRUPTION if they don't.
+//!
+//! @param [in]  stack    
+//!
+//! @return whether or not stack's canaries have correct values.
+//-----------------------------------------------------------------------------
+bool stackCheckCanaries(Stack* stack)
+{
+
+    if (getCanary((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), 'l') != STACK_ARRAY_CANARY_L  || 
+        getCanary((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), 'r') != STACK_ARRAY_CANARY_R  ||
+        stack->canaryL                                                               != STACK_STRUCT_CANARY_L ||
+        stack->canaryR                                                               != STACK_STRUCT_CANARY_R)
+    {
+        stack->errorStatus = MEMORY_CORRUPTION;
+        return false;
+    }
+
+    return true;
+}
+
 #else
 #define GET_CANARY(memBlock, memBlockSize, side)               
 #define SET_CANARY(memBlock, memBlockSize, canary, side)       
@@ -122,7 +178,7 @@ void setCanaries(void* memBlock, size_t memBlockSize, uint32_t canaryL, uint32_t
 #endif
 
 #ifdef STACK_ARRAY_HASHING
-#define UPDATE_HASH(memBlock, memBlockSize, hash) updateHash(memBlock, memBlockSize, hash)
+#define STACK_UPDATE_HASH(stack) stackUpdateHash(stack)
 
 //-----------------------------------------------------------------------------
 //! Updates hash value. Computes XOR for rotated right hash and current byte 
@@ -132,13 +188,43 @@ void setCanaries(void* memBlock, size_t memBlockSize, uint32_t canaryL, uint32_t
 //! @param [in]  memBlockSize   
 //! @param [out] hash   
 //-----------------------------------------------------------------------------
-void updateHash(void* memBlock, size_t memBlockSize, uint32_t* hash)
+void updateHash(void* memBlock, size_t memBlockSize, uint32_t* hash, uint32_t baseHashValue)
 {
-    *hash = 0;
+    *hash = baseHashValue;
     for (char* currByte = (char*) memBlock; currByte < (char*)memBlock + memBlockSize; currByte++)
     {
         *hash = ((*hash << 1) + ((*hash >> (8 * sizeof(*hash) - 1)) & 1)) ^ *currByte;
     }
+}
+
+void stackUpdateHash(Stack* stack)
+{
+    updateHash((void*)stack->dynamicArray, 
+               stack->capacity * sizeof(elem_t), 
+               (uint32_t*) &stack->dynamicArray[stack->capacity], 
+               2 * (stack->size << 1) + 3 * (stack->capacity >> 1));
+}
+
+//-----------------------------------------------------------------------------
+//! Checks whether or not stack's hash has correct value.
+//!
+//! @param [in]  stack    
+//!
+//! @return whether or not stack's hash has correct value.
+//-----------------------------------------------------------------------------
+bool stackCheckHash(Stack* stack)
+{
+    uint32_t prevHash = *(uint32_t*) &stack->dynamicArray[stack->capacity];
+    STACK_UPDATE_HASH(stack);
+    uint32_t newHash  = *(uint32_t*) &stack->dynamicArray[stack->capacity];
+
+    if (prevHash != newHash)
+    {
+        stack->errorStatus = MEMORY_CORRUPTION;
+        return false;
+    }
+
+    return true;
 }
 
 #else
@@ -199,7 +285,7 @@ Stack* fstackConstruct(Stack* stack, size_t capacity)
     SET_CANARIES((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), STACK_ARRAY_CANARY_L, STACK_ARRAY_CANARY_R);
     SET_CANARIES((void*)(stack + 1), sizeof(Stack), STACK_STRUCT_CANARY_L, STACK_ARRAY_CANARY_R);
     PUT_POISON(stack->dynamicArray, stack->dynamicArray + stack->capacity);
-    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+    STACK_UPDATE_HASH(stack);
 
     stack->status = CONSTRUCTED;
     ASSERT_STACK_OK(stack);
@@ -404,7 +490,7 @@ elem_t* resizeArray(Stack* stack, size_t newCapacity)
 
         PUT_POISON(stack->dynamicArray + stack->size, stack->dynamicArray + stack->capacity);
         SET_CANARY((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), STACK_ARRAY_CANARY_R, 'r');
-        UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+        STACK_UPDATE_HASH(stack);
     }
 
     return newDynamicArray;
@@ -439,7 +525,7 @@ STACK_ERRORS stackPush(Stack* stack, elem_t value)
     stack->dynamicArray[stack->size] = value;
     stack->size++;
 
-    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+    STACK_UPDATE_HASH(stack);
     ASSERT_STACK_OK(stack);
 
     return NO_ERROR;
@@ -470,7 +556,7 @@ elem_t stackPop(Stack* stack)
     elem_t returnValue = stack->dynamicArray[stack->size];
 
     PUT_POISON(stack->dynamicArray + stack->size, stack->dynamicArray + stack->size + 1);
-    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+    STACK_UPDATE_HASH(stack);
     ASSERT_STACK_OK(stack);
 
     return returnValue;
@@ -518,7 +604,7 @@ void stackClear(Stack* stack)
     }
 
     PUT_POISON(stack->dynamicArray, stack->dynamicArray + stack->capacity);
-    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+    STACK_UPDATE_HASH(stack);
     ASSERT_STACK_OK(stack);
 }
 
@@ -535,7 +621,7 @@ bool stackShrinkToFit(Stack* stack)
 {
     ASSERT_STACK_OK(stack);
 
-    if (stack->size <= MINIMAL_STACK_CAPACITY)
+    if (stack->capacity <= MINIMAL_STACK_CAPACITY)
     {
         return false;
     }
@@ -548,7 +634,7 @@ bool stackShrinkToFit(Stack* stack)
         return false;
     }
 
-    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
+    STACK_UPDATE_HASH(stack);
     ASSERT_STACK_OK(stack);
 
     return true;
@@ -589,53 +675,33 @@ bool stackOk(Stack* stack)
 
     if (stack->size < 0 || stack->size > stack->capacity)
     {
+        stack->errorStatus = MEMORY_CORRUPTION;
         return false;
     }
 
     if (stack->dynamicArray == NULL)
     {
+        stack->errorStatus = MEMORY_CORRUPTION;
         return false;
     }
 
     #ifdef STACK_POISON
-    for (size_t i = 0; i < stack->size; i++)
+    if (!stackCheckPoison(stack))
     {
-        if (IS_STACK_POISON(stack->dynamicArray[i]))
-        {
-            stack->errorStatus = MEMORY_CORRUPTION;
-            return false;
-        }
-    }
-
-    for (size_t i = stack->size; i < stack->capacity; i++)
-    {
-        if (!IS_STACK_POISON(stack->dynamicArray[i]))
-        {
-            stack->errorStatus = MEMORY_CORRUPTION;
-            return false;
-        }
+        return false;
     }
     #endif
 
     #ifdef STACK_CANARIES_ENABLED
-    if (getCanary((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), 'l') != STACK_ARRAY_CANARY_L  || 
-        getCanary((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), 'r') != STACK_ARRAY_CANARY_R  ||
-        stack->canaryL                                                               != STACK_STRUCT_CANARY_L ||
-        stack->canaryR                                                               != STACK_STRUCT_CANARY_R)
+    if (!stackCheckCanaries(stack))
     {
-        stack->errorStatus = MEMORY_CORRUPTION;
         return false;
     }
     #endif
 
     #ifdef STACK_ARRAY_HASHING
-    uint32_t prevHash = *(uint32_t*) &stack->dynamicArray[stack->capacity];
-    UPDATE_HASH((void*)stack->dynamicArray, stack->capacity * sizeof(elem_t), (uint32_t*) &stack->dynamicArray[stack->capacity]);
-    uint32_t newHash  = *(uint32_t*) &stack->dynamicArray[stack->capacity];
-
-    if (prevHash != newHash)
+    if (!stackCheckHash(stack))
     {
-        stack->errorStatus = MEMORY_CORRUPTION;
         return false;
     }
     #endif
@@ -643,7 +709,12 @@ bool stackOk(Stack* stack)
     return true;
 }
 
-#define STACK_ERROR_STRING(errorStatus) ": " #errorStatus
+#define STACK_ERROR_STRING(errorStatus) #errorStatus
+constexpr size_t STACK_DUMP_ERROR_NAME_STRARTING_INDEX = 9;
+constexpr size_t STACK_DUMP_ERROR_STRING_LENGTH        = 128;
+#define STACK_DUMP_CAT_ERROR_NAME_TO_ERROR_STRING(errorStatus) snprintf(&errorString[STACK_DUMP_ERROR_NAME_STRARTING_INDEX], \
+                                                                                     STACK_DUMP_ERROR_STRING_LENGTH,         \
+                                                                                     STACK_ERROR_STRING(errorStatus));
 
 //-----------------------------------------------------------------------------
 //! Uses logGenerator to dump stack to html log file. 
@@ -659,44 +730,43 @@ void dump(Stack* stack)
         initLog();
     }
 
-    char errorString[128];
+    char errorString[STACK_DUMP_ERROR_STRING_LENGTH];
     if (stack->errorStatus == NO_ERROR)
     {
-        strcpy(errorString, "NO_ERROR");
+        snprintf(errorString, STACK_DUMP_ERROR_STRING_LENGTH, STACK_ERROR_STRING(NO_ERROR));
     }
     else
     {
-        strcpy(errorString, "ERROR ");
-        intToStr(stack->errorStatus, &errorString[6], 1);
+        snprintf(errorString, STACK_DUMP_ERROR_STRING_LENGTH, "ERROR %d: ", stack->errorStatus);
 
         switch(stack->errorStatus)
         {
             case POP_FROM_EMPTY:
-                strcpy(&errorString[7], STACK_ERROR_STRING(POP_FROM_EMPTY));
+                STACK_DUMP_CAT_ERROR_NAME_TO_ERROR_STRING(POP_FROM_EMPTY);
             break;
 
             case TOP_FROM_EMPTY:
-                strcpy(&errorString[7], STACK_ERROR_STRING(TOP_FROM_EMPTY));
+                STACK_DUMP_CAT_ERROR_NAME_TO_ERROR_STRING(TOP_FROM_EMPTY);
             break;
 
             case CONSTRUCTION_FAILED:
-                strcpy(&errorString[7], STACK_ERROR_STRING(CONSTRUCTION_FAILED));
+                STACK_DUMP_CAT_ERROR_NAME_TO_ERROR_STRING(CONSTRUCTION_FAILED);
             break;
 
             case REALLOCATION_FAILED:
-                strcpy(&errorString[7], STACK_ERROR_STRING(REALLOCATION_FAILED));
+                STACK_DUMP_CAT_ERROR_NAME_TO_ERROR_STRING(REALLOCATION_FAILED);
             break;
 
             case NOT_CONSTRUCTED_USE:
-                strcpy(&errorString[7], STACK_ERROR_STRING(NOT_CONSTRUCTED_USE));
+                STACK_DUMP_CAT_ERROR_NAME_TO_ERROR_STRING(NOT_CONSTRUCTED_USE);
             break;
 
             case DESTRUCTED_USE:
-                strcpy(&errorString[7], STACK_ERROR_STRING(DESTRUCTED_USE));
+                STACK_DUMP_CAT_ERROR_NAME_TO_ERROR_STRING(DESTRUCTED_USE);
             break;
 
             case MEMORY_CORRUPTION:
-                strcpy(&errorString[7], STACK_ERROR_STRING(MEMORY_CORRUPTION));
+                STACK_DUMP_CAT_ERROR_NAME_TO_ERROR_STRING(MEMORY_CORRUPTION);
             break;
         }
     }
@@ -707,7 +777,7 @@ void dump(Stack* stack)
 
     if (stack->errorStatus == NOT_CONSTRUCTED_USE || stack->errorStatus == DESTRUCTED_USE)
     {
-        logWrite(") [0x%X] \n");
+        logWrite(") [0x%X] \n", stack);
     }
     else
     {
