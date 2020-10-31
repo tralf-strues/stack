@@ -38,11 +38,11 @@
 #endif
 
 #ifdef STACK_CANARIES_ENABLED
-constexpr uint32_t STACK_ARRAY_CANARY_L  = 0xBADC0FFE;
-constexpr uint32_t STACK_ARRAY_CANARY_R  = 0xDEADBEEF;
+static uint32_t STACK_ARRAY_CANARY_L  = 0xBADC0FFE;
+static uint32_t STACK_ARRAY_CANARY_R  = 0xDEADBEEF;
 
-constexpr uint32_t STACK_STRUCT_CANARY_L = 0xDEDDED32;
-constexpr uint32_t STACK_STRUCT_CANARY_R = 0xFACEBEEF;
+static uint32_t STACK_STRUCT_CANARY_L = 0xDEDDED32;
+static uint32_t STACK_STRUCT_CANARY_R = 0xFACEBEEF;
 #endif
 
 #ifdef STACK_DEBUG_MODE
@@ -55,31 +55,31 @@ constexpr uint32_t STACK_STRUCT_CANARY_R = 0xFACEBEEF;
 
 typedef double elem_t;
 
-constexpr double STACK_EXPAND_MULTIPLIER = 1.8;
-constexpr size_t DEFAULT_STACK_CAPACITY  = 10;
-constexpr size_t MINIMAL_STACK_CAPACITY  = 3;
+static double STACK_EXPAND_MULTIPLIER = 1.8;
+static size_t DEFAULT_STACK_CAPACITY  = 10;
+static size_t MINIMAL_STACK_CAPACITY  = 3;
 
 #ifdef STACK_DEBUG_MODE
-constexpr const char* DYNAMICALLY_CREATED_STACK_NAME  = "no name, created dynamically";
+static const char* DYNAMICALLY_CREATED_STACK_NAME  = "no name, created dynamically";
 #endif
 
-enum STACK_ERRORS
+enum StackErrors
 {
-    NO_ERROR,
-    POP_FROM_EMPTY,
-    TOP_FROM_EMPTY,
-    CONSTRUCTION_FAILED,
-    REALLOCATION_FAILED,
-    NOT_CONSTRUCTED_USE,
-    DESTRUCTED_USE,
-    MEMORY_CORRUPTION
+    STACK_NO_ERROR,
+    STACK_POP_FROM_EMPTY,
+    STACK_TOP_FROM_EMPTY,
+    STACK_CONSTRUCTION_FAILED,
+    STACK_REALLOCATION_FAILED,
+    STACK_NOT_CONSTRUCTED_USE,
+    STACK_DESTRUCTED_USE,
+    STACK_MEMORY_CORRUPTION
 };
 
-enum STACK_STATUS
+enum StackStatus
 {
-    NOT_CONSTRUCTED,
-    CONSTRUCTED,
-    DESTRUCTED
+    STACK_STATUS_NOT_CONSTRUCTED,
+    STACK_STATUS_CONSTRUCTED,
+    STACK_STATUS_DESTRUCTED
 };
 
 struct Stack
@@ -95,8 +95,8 @@ struct Stack
     size_t       size         = 0;
     size_t       capacity     = 0;
     elem_t*      dynamicArray = NULL;
-    STACK_STATUS status       = NOT_CONSTRUCTED;
-    STACK_ERRORS errorStatus  = NO_ERROR;
+    StackStatus  status       = STACK_STATUS_NOT_CONSTRUCTED;
+    StackErrors  errorStatus  = STACK_NO_ERROR;
 
     #ifdef STACK_CANARIES_ENABLED
     uint32_t canaryR = STACK_STRUCT_CANARY_R;
@@ -117,9 +117,9 @@ void         stackDestruct    (Stack* stack);
 void         deleteStack      (Stack* stack);
 size_t       stackSize        (Stack* stack);
 size_t       stackCapacity    (Stack* stack);
-STACK_ERRORS stackErrorStatus (Stack* stack);
+StackErrors  stackErrorStatus (Stack* stack);
                               
-STACK_ERRORS stackPush        (Stack* stack, elem_t value);
+StackErrors  stackPush        (Stack* stack, elem_t value);
 elem_t       stackPop         (Stack* stack);
 elem_t       stackTop         (Stack* stack);
 void         stackClear       (Stack* stack);
