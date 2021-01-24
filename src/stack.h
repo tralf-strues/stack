@@ -1,4 +1,5 @@
-#pragma once
+#ifndef STACK_H
+#define STACK_H
 
 #include <assert.h>
 #include <stdint.h>
@@ -128,3 +129,4 @@ bool         stackShrinkToFit (Stack* stack);
 bool         stackOk          (Stack* stack);    
 void         dump             (Stack* stack);
 
+#endif

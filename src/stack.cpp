@@ -3,7 +3,7 @@
 #include <math.h>
 
 #include "stack.h"
-#include "..\libs\log_generator.h"
+#include "../libs/log_generator.h"
 
 #ifdef STACK_POISON
     #define PUT_POISON(begin, end) putPoison(begin, end)
@@ -727,9 +727,9 @@ void dump(Stack* stack)
 {
     assert(stack != NULL);
 
-    if (!isLogInitialized())
+    if (!LG_IsInitialized())
     {
-        initLog();
+        LG_Init();
     }
 
     char errorString[STACK_DUMP_ERROR_STRING_LENGTH];
@@ -773,17 +773,17 @@ void dump(Stack* stack)
         }
     }
     
-    logWriteMessageStart(LOG_COLOR_BLACK);
-    logWrite("Stack (");
-    logWrite(errorString, stack->errorStatus == STACK_NO_ERROR ? LOG_COLOR_GREEN : LOG_COLOR_RED);
+    LG_WriteMessageStart(LG_COLOR_BLACK);
+    LG_Write("Stack (");
+    LG_Write(errorString, stack->errorStatus == STACK_NO_ERROR ? LG_COLOR_GREEN : LG_COLOR_RED);
 
     if (stack->errorStatus == STACK_NOT_CONSTRUCTED_USE || stack->errorStatus == STACK_DESTRUCTED_USE)
     {
-        logWrite(") [0x%X] \n", stack);
+        LG_Write(") [0x%X] \n", stack);
     }
     else
     {
-        logWrite(") [0x%X] "
+        LG_Write(") [0x%X] "
 
                  #ifdef STACK_DEBUG_MODE
                  "\"%s\""
@@ -844,34 +844,34 @@ void dump(Stack* stack)
         {
             if (i < stack->size)
             {
-                logWrite("       *[%lu]\t= %lg ", 
+                LG_Write("       *[%lu]\t= %lg ", 
                          i, stack->dynamicArray[i]);
             }
             else
             {
-                logWrite("        [%lu]\t= %lg ", 
+                LG_Write("        [%lu]\t= %lg ", 
                          i, stack->dynamicArray[i]);
             }
 
             #ifdef STACK_POISON
             if (IS_STACK_POISON(stack->dynamicArray[i]))
             {
-                logWrite("(POISON!)");
+                LG_Write("(POISON!)");
             }
             #endif
 
-            logWrite("\n");
+            LG_Write("\n");
         }
 
-        logWrite("   }\n"
+        LG_Write("   }\n"
                  "}\n");
 
     }
 
-    logWriteMessageEnd();
+    LG_WriteMessageEnd();
 
     if (stack->errorStatus != STACK_NO_ERROR)
     {
-        closeLog();
+        LG_Close();
     }
 }
